@@ -1,0 +1,9 @@
+services:
+  proxy:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      # - BASE_URL=https://jecna.nevim.com
+    restart: always

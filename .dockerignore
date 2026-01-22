@@ -1,0 +1,6 @@
+target/
+.git/
+server.log
+docker-compose.yml
+README.md
+.gitignore
