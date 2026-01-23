@@ -42,7 +42,7 @@ pub fn rewrite_content_urls(content: String, proxy_origin: &str, state: &AppStat
     let urls = state.config.mode.get_all_variants();
     let mut result = content;
     for url in urls {
-        result = result.replace(url, proxy_origin);
+        result = result.replace(&url, proxy_origin);
     }
     result
 }
@@ -87,7 +87,7 @@ pub fn prepare_request_headers(headers: &mut HeaderMap, state: &AppState) {
     headers.remove("accept-encoding");
 
     if headers.contains_key("origin") {
-        headers.insert("origin", HeaderValue::from_static(state.config.mode.url()));
+        headers.insert("origin", HeaderValue::from_str(&state.config.mode.url()).unwrap());
     }
 
     if headers.contains_key("referer") {

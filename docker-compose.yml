@@ -5,7 +5,7 @@ services:
       - "3000:3000"
     environment:
       - PORT=3000
+      - MODE=spsejecna
       # - BASE_URL=https://jecna.nevim.com
       # - DISABLE_WARNING=true
-      # - MODE=spsejecna
     restart: always

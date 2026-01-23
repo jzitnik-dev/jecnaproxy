@@ -31,7 +31,8 @@ pub struct Config {
 #[derive(Debug, Clone)]
 pub enum Mode {
     SPSEJECNA,
-    JIDELNA
+    JIDELNA,
+    CUSTOM
 }
 
 impl Mode {
@@ -41,31 +42,44 @@ impl Mode {
             .map(|v| v.to_lowercase())
             .as_deref()
         {
-            Some("jidelna") => Mode::JIDELNA,
+            Some(s) if s.is_empty() => Mode::SPSEJECNA,
+            None => Mode::SPSEJECNA,
             Some("spsejecna") => Mode::SPSEJECNA,
-            _ => Mode::SPSEJECNA, // default
+
+            Some("jidelna") => Mode::JIDELNA,
+
+            _ => Mode::CUSTOM,
         }
     }
 
-    pub fn url(&self) -> &'static str {
+    pub fn url(&self) -> String {
         match self {
-            Mode::SPSEJECNA => "https://spsejecna.cz",
-            Mode::JIDELNA => "https://strav.nasejidelna.cz",
+            Mode::SPSEJECNA => "https://spsejecna.cz".to_string(),
+            Mode::JIDELNA => "https://strav.nasejidelna.cz".to_string(),
+            Mode::CUSTOM => env::var("MODE").unwrap(),
         }
     }
 
-    pub fn get_all_variants(&self) -> Vec<&'static str> {
+    pub fn get_all_variants(&self) -> Vec<String> {
         match self {
             Mode::SPSEJECNA => vec![
-                "https://www.spsejecna.cz",
-                "https://spsejecna.cz",
-                "http://www.spsejecna.cz",
-                "http://spsejecna.cz"
+                "https://www.spsejecna.cz".to_string(),
+                "https://spsejecna.cz".to_string(),
+                "http://www.spsejecna.cz".to_string(),
+                "http://spsejecna.cz".to_string(),
             ],
             Mode::JIDELNA => vec![
-                "https://strav.nasejidelna.cz",
-                "http://strav.nasejidelna.cz",
-            ]
+                "https://strav.nasejidelna.cz".to_string(),
+                "http://strav.nasejidelna.cz".to_string(),
+            ],
+            Mode::CUSTOM => {
+                let custom_url = env::var("MODE").unwrap();
+                let mut variants = vec![custom_url.clone()];
+                if custom_url.starts_with("https://") {
+                    variants.push(custom_url.replacen("https://", "http://", 1));
+                }
+                variants
+            }
         }
     }
 }
