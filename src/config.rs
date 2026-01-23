@@ -54,7 +54,7 @@ impl Mode {
 
     pub fn url(&self) -> String {
         match self {
-            Mode::SPSEJECNA => "https://spsejecna.cz".to_string(),
+            Mode::SPSEJECNA => "https://www.spsejecna.cz".to_string(),
             Mode::JIDELNA => "https://strav.nasejidelna.cz".to_string(),
             Mode::CUSTOM => env::var("MODE").unwrap(),
         }
