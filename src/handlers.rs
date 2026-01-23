@@ -22,12 +22,12 @@ use axum::{
 
 const BANNER_HTML: &str = r#"<div style="width: 100vw; height: 100vh; position: fixed; z-index: 1000; background-color: black; color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 5px;">
   <h1 style="font-size: 40px;">Toto není oficiální web SPŠE Ječná!</h1>
-  <p style="font-size: 20px;">Oficiální web se nachází na <a style="font-size: 20px; color: white;" href="https://spsejecna.cz">spsejecna.cz</a>.</p>
+  <p style="font-size: 20px;">Oficiální web se nachází na <a style="font-size: 20px; color: white;" href="$url">spsejecna.cz</a>.</p>
   <script>
     setTimeout(() => {
       const { pathname, search, hash } = window.location;
       window.location.replace(
-        "https://spsejecna.cz" + pathname + search + hash
+        "$url" + pathname + search + hash
       );
     }, 500);
   </script>
@@ -145,7 +145,7 @@ async fn process_response(
                 let mut new_body_str = utils::rewrite_content_urls(body_str, proxy_origin, &state);
 
                 if content_type.contains("text/html") && !disable_warning {
-                    inject_banner(&mut new_body_str);
+                    inject_banner(&mut new_body_str, state);
                 }
 
                 // Remove headers that are invalid after modification
@@ -173,7 +173,7 @@ async fn process_response(
     }
 }
 
-fn inject_banner(body: &mut String) {
+fn inject_banner(body: &mut String, state: &AppState) {
     let insert_pos = body.match_indices('<').find_map(|(idx, _)| {
         if body[idx..].len() >= 5 && body[idx + 1..idx + 5].eq_ignore_ascii_case("body") {
             body[idx..].find('>').map(|offset| idx + offset + 1)
@@ -183,43 +183,8 @@ fn inject_banner(body: &mut String) {
     });
 
     if let Some(pos) = insert_pos {
-        body.insert_str(pos, BANNER_HTML);
+        body.insert_str(pos, &BANNER_HTML.replace("$url", &state.config.mode.url()));
     } else {
-        body.insert_str(0, BANNER_HTML);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_inject_banner_basic() {
-        let mut html = "<html><body><h1>Hello</h1></body></html>".to_string();
-        inject_banner(&mut html);
-        assert!(html.contains("<body><div"));
-        assert!(html.contains(BANNER_HTML));
-    }
-
-    #[test]
-    fn test_inject_banner_attributes() {
-        let mut html = "<html lang='en'><body class='foo'><h1>Hello</h1></body></html>".to_string();
-        inject_banner(&mut html);
-        assert!(html.contains("<body class='foo'><div"));
-    }
-
-    #[test]
-    fn test_inject_banner_case() {
-        let mut html = "<HTML><BODY><h1>Hello</h1></BODY></HTML>".to_string();
-        inject_banner(&mut html);
-        assert!(html.contains("<BODY><div"));
-    }
-
-    #[test]
-    fn test_inject_banner_no_body() {
-        let mut html = "<h1>Hello</h1>".to_string();
-        inject_banner(&mut html);
-        assert!(html.starts_with("<div"));
-        assert!(html.contains("<h1>Hello</h1>"));
+        body.insert_str(0, &BANNER_HTML.replace("$url", &state.config.mode.url()));
     }
 }

@@ -13,6 +13,7 @@
  */
 
 use axum::http::{HeaderMap, HeaderValue};
+use reqwest::Url;
 
 use crate::state::AppState;
 
@@ -49,23 +50,35 @@ pub fn rewrite_content_urls(content: String, proxy_origin: &str, state: &AppStat
 
 /// Processes a `Set-Cookie` header value
 pub fn process_cookie(cookie: &str, is_secure_context: bool) -> String {
-    let mut parts: Vec<String> = cookie
-        .split(';')
-        .map(|s| s.trim().to_string())
-        .filter(|s| {
-            let lower = s.to_lowercase();
-            !lower.starts_with("domain=")
-                && !lower.starts_with("samesite=")
-                && (!lower.starts_with("secure") || is_secure_context)
-        })
-        .collect();
+    let mut has_secure = false;
+    let mut parts: Vec<String> = Vec::new();
+
+    for raw in cookie.split(';') {
+        let part = raw.trim();
+        let lower = part.to_lowercase();
+
+        match lower.as_str() {
+            p if p.starts_with("domain=") => {}
+            p if p.starts_with("path=") => parts.push(part.to_string()),
+            p if p.starts_with("samesite=") => {}
+            "secure" => {
+                has_secure = true;
+                if is_secure_context {
+                    parts.push("Secure".to_string());
+                }
+            }
+            "httponly" => {
+                parts.push("HttpOnly".to_string());
+            }
+            _ => parts.push(part.to_string()),
+        }
+    }
 
     if is_secure_context {
-        parts.push("SameSite=None".to_string());
-
-        if !parts.iter().any(|p| p.to_lowercase() == "secure") {
+        if !has_secure {
             parts.push("Secure".to_string());
         }
+        parts.push("SameSite=None".to_string());
     } else {
         parts.push("SameSite=Lax".to_string());
     }
@@ -87,13 +100,26 @@ pub fn prepare_request_headers(headers: &mut HeaderMap, state: &AppState) {
     headers.remove("accept-encoding");
 
     if headers.contains_key("origin") {
-        headers.insert("origin", HeaderValue::from_str(&state.config.mode.url()).unwrap());
+        headers.insert(
+            "origin",
+            HeaderValue::from_str(&state.config.mode.url()).unwrap(),
+        );
     }
 
     if headers.contains_key("referer") {
+        let base_url = Url::parse(&state.config.mode.url()).unwrap();
+
+        let mut referer_url = Url::parse(headers["referer"].to_str().unwrap()).unwrap();
+
+        referer_url.set_scheme(base_url.scheme()).unwrap();
+        referer_url.set_host(base_url.host_str()).unwrap();
+        referer_url.set_port(base_url.port()).unwrap();
+
         headers.insert(
             "referer",
-            HeaderValue::from_str(&format!("{}/", state.config.mode.url())).unwrap(),
+            HeaderValue::from_str(referer_url.as_str()).unwrap(),
         );
     }
+
+    tracing::info!(?headers);
 }

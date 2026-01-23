@@ -7,7 +7,7 @@ A proxy server for `spsejecna.cz` that handles CORS, cookie rewriting, and link 
 > Tento program je neoficiální. Nemá nic společného s SPŠE Ječná a není schválena vedením školy.
 
 ## Features
-- Proxies all requests to `https://www.spsejecna.cz`
+- Proxies all requests to `https://www.spsejecna.cz`, `https://strav.nasejidelna.cz` or website of ur choice
 - Handles CORS (Allow-Origin, Credentials)
 - Rewrites `Set-Cookie` to work on localhost
 - Rewrites redirects (Location header) and HTML body links
