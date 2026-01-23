@@ -61,6 +61,7 @@ async fn main() {
         .allow_credentials(true);
 
     let app = Router::new()
+        .route("/robots.txt", any(handlers::robots_txt_handler))
         .route("/", any(handlers::proxy_handler))
         .route("/{*path}", any(handlers::proxy_handler))
         .layer(cors)

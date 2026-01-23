@@ -33,6 +33,21 @@ const BANNER_HTML: &str = r#"<div style="width: 100vw; height: 100vh; position: 
   </script>
 </div>"#;
 
+const ROBOTS_TXT: &str = "User-agent: *\nDisallow: /\n";
+
+/// Handler for robots.txt
+pub async fn robots_txt_handler() -> Response {
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        "content-type",
+        HeaderValue::from_static("text/plain; charset=utf-8"),
+    );
+
+    let mut response = Response::new(Body::from(ROBOTS_TXT));
+    *response.headers_mut() = headers;
+    response
+}
+
 /// The main proxy handler that intercepts all traffic.
 ///
 /// It forwards requests to `https://www.spsejecna.cz`, rewriting headers and body content
@@ -74,7 +89,14 @@ pub async fn proxy_handler(State(state): State<AppState>, req: Request) -> Respo
 
     match request_builder.send().await {
         Ok(resp) => {
-            process_response(resp, &proxy_origin, is_secure, state.config.disable_warning, &state).await
+            process_response(
+                resp,
+                &proxy_origin,
+                is_secure,
+                state.config.disable_warning,
+                &state,
+            )
+            .await
         }
         Err(e) => {
             tracing::error!("Upstream request failed: {}", e);
@@ -89,7 +111,7 @@ async fn process_response(
     proxy_origin: &str,
     is_secure: bool,
     disable_warning: bool,
-    state: &AppState
+    state: &AppState,
 ) -> Response {
     let status = resp.status();
     let mut headers = HeaderMap::new();
@@ -106,7 +128,8 @@ async fn process_response(
             }
         } else if key == "location" {
             if let Ok(str_val) = value.to_str() {
-                let new_val = utils::rewrite_content_urls(str_val.to_string(), proxy_origin, &state);
+                let new_val =
+                    utils::rewrite_content_urls(str_val.to_string(), proxy_origin, &state);
 
                 let new_val = if new_val.is_empty() {
                     "/".to_string()

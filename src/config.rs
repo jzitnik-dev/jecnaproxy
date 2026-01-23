@@ -25,23 +25,19 @@ pub struct Config {
     /// Whether to disable the "Not Official" warning banner.
     pub disable_warning: bool,
     /// Whether we should proxy spsejecna.cz or jidelna
-    pub mode: Mode
+    pub mode: Mode,
 }
 
 #[derive(Debug, Clone)]
 pub enum Mode {
     SPSEJECNA,
     JIDELNA,
-    CUSTOM
+    CUSTOM,
 }
 
 impl Mode {
     fn from_env() -> Self {
-        match env::var("MODE")
-            .ok()
-            .map(|v| v.to_lowercase())
-            .as_deref()
-        {
+        match env::var("MODE").ok().map(|v| v.to_lowercase()).as_deref() {
             Some(s) if s.is_empty() => Mode::SPSEJECNA,
             None => Mode::SPSEJECNA,
             Some("spsejecna") => Mode::SPSEJECNA,
@@ -99,7 +95,7 @@ impl Config {
         let disable_warning = env::var("DISABLE_WARNING")
             .map(|v| v == "true" || v == "1")
             .unwrap_or(false);
-        
+
         let mode = Mode::from_env();
 
         Self {
