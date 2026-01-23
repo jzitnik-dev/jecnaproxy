@@ -3,8 +3,8 @@
 A proxy server for `spsejecna.cz` that handles CORS, cookie rewriting, and link replacement. This allows you to build frontend applications that communicate with the school's system without CORS issues.
 
 > [!WARNING]
-> This app is unofficial. It has nothing to do with SPŠE Ječná and is not approved by the school management.  
-> Tato aplikace je neoficiální. Nemá nic společného s SPŠE Ječná a není schválena vedením školy.
+> This program is unofficial. It has nothing to do with SPŠE Ječná and is not approved by the school management.  
+> Tento program je neoficiální. Nemá nic společného s SPŠE Ječná a není schválena vedením školy.
 
 ## Features
 - Proxies all requests to `https://www.spsejecna.cz`
