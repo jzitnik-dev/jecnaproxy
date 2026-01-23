@@ -20,6 +20,19 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
+const BANNER_HTML: &str = r#"<div style="width: 100vw; height: 100vh; position: fixed; z-index: 1000; background-color: black; color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 5px;">
+  <h1 style="font-size: 40px;">Toto není oficiální web SPŠE Ječná!</h1>
+  <p style="font-size: 20px;">Oficiální web se nachází na <a style="font-size: 20px; color: white;" href="https://spsejecna.cz">spsejecna.cz</a>.</p>
+  <script>
+    setTimeout(() => {
+      const { pathname, search, hash } = window.location;
+      window.location.replace(
+        "https://spsejecna.cz" + pathname + search + hash
+      );
+    }, 500);
+  </script>
+</div>"#;
+
 /// The main proxy handler that intercepts all traffic.
 ///
 /// It forwards requests to `https://www.spsejecna.cz`, rewriting headers and body content
@@ -60,7 +73,9 @@ pub async fn proxy_handler(State(state): State<AppState>, req: Request) -> Respo
         .body(body_bytes);
 
     match request_builder.send().await {
-        Ok(resp) => process_response(resp, &proxy_origin, is_secure).await,
+        Ok(resp) => {
+            process_response(resp, &proxy_origin, is_secure, state.config.disable_warning).await
+        }
         Err(e) => {
             tracing::error!("Upstream request failed: {}", e);
             (StatusCode::BAD_GATEWAY, format!("Proxy Error: {}", e)).into_response()
@@ -73,6 +88,7 @@ async fn process_response(
     resp: reqwest::Response,
     proxy_origin: &str,
     is_secure: bool,
+    disable_warning: bool,
 ) -> Response {
     let status = resp.status();
     let mut headers = HeaderMap::new();
@@ -125,7 +141,11 @@ async fn process_response(
         match resp.bytes().await {
             Ok(bytes) => {
                 let body_str = String::from_utf8_lossy(&bytes).to_string();
-                let new_body_str = utils::rewrite_content_urls(body_str, proxy_origin);
+                let mut new_body_str = utils::rewrite_content_urls(body_str, proxy_origin);
+
+                if content_type.contains("text/html") && !disable_warning {
+                    inject_banner(&mut new_body_str);
+                }
 
                 // Remove headers that are invalid after modification
                 headers.remove("content-length");
@@ -149,5 +169,56 @@ async fn process_response(
         *response.status_mut() = status;
         *response.headers_mut() = headers;
         response
+    }
+}
+
+fn inject_banner(body: &mut String) {
+    let insert_pos = body.match_indices('<').find_map(|(idx, _)| {
+        if body[idx..].len() >= 5 && body[idx + 1..idx + 5].eq_ignore_ascii_case("body") {
+            body[idx..].find('>').map(|offset| idx + offset + 1)
+        } else {
+            None
+        }
+    });
+
+    if let Some(pos) = insert_pos {
+        body.insert_str(pos, BANNER_HTML);
+    } else {
+        body.insert_str(0, BANNER_HTML);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_inject_banner_basic() {
+        let mut html = "<html><body><h1>Hello</h1></body></html>".to_string();
+        inject_banner(&mut html);
+        assert!(html.contains("<body><div"));
+        assert!(html.contains(BANNER_HTML));
+    }
+
+    #[test]
+    fn test_inject_banner_attributes() {
+        let mut html = "<html lang='en'><body class='foo'><h1>Hello</h1></body></html>".to_string();
+        inject_banner(&mut html);
+        assert!(html.contains("<body class='foo'><div"));
+    }
+
+    #[test]
+    fn test_inject_banner_case() {
+        let mut html = "<HTML><BODY><h1>Hello</h1></BODY></HTML>".to_string();
+        inject_banner(&mut html);
+        assert!(html.contains("<BODY><div"));
+    }
+
+    #[test]
+    fn test_inject_banner_no_body() {
+        let mut html = "<h1>Hello</h1>".to_string();
+        inject_banner(&mut html);
+        assert!(html.starts_with("<div"));
+        assert!(html.contains("<h1>Hello</h1>"));
     }
 }

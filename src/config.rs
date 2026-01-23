@@ -22,12 +22,15 @@ pub struct Config {
     /// The base URL of this proxy
     /// If `None`, it is determined dynamically from the `Host` header.
     pub base_url: Option<String>,
+    /// Whether to disable the "Not Official" warning banner.
+    pub disable_warning: bool,
 }
 
 impl Config {
     /// # Environment Variables
     /// * `PORT` - Port to listen on (default: 3000).
     /// * `BASE_URL` - Explicit public URL of the proxy (optional).
+    /// * `DISABLE_WARNING` - Set to "true" or "1" to disable the banner.
     pub fn from_env() -> Self {
         let port = env::var("PORT")
             .ok()
@@ -35,7 +38,14 @@ impl Config {
             .unwrap_or(3000);
 
         let base_url = env::var("BASE_URL").ok();
+        let disable_warning = env::var("DISABLE_WARNING")
+            .map(|v| v == "true" || v == "1")
+            .unwrap_or(false);
 
-        Self { port, base_url }
+        Self {
+            port,
+            base_url,
+            disable_warning,
+        }
     }
 }
