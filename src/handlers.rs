@@ -38,14 +38,14 @@ const BANNER_HTML: &str = r#"<div style="width: 100vw; height: 100vh; position: 
 /// It forwards requests to `https://www.spsejecna.cz`, rewriting headers and body content
 /// to ensure the site functions correctly when accessed via this proxy.
 pub async fn proxy_handler(State(state): State<AppState>, req: Request) -> Response {
-    let client = state.client;
+    let client = &state.client;
     let path_query = req
         .uri()
         .path_and_query()
         .map(|v| v.as_str())
         .unwrap_or("/");
 
-    let target_url = format!("https://www.spsejecna.cz{}", path_query);
+    let target_url = format!("{}{}", state.config.mode.url(), path_query);
     tracing::info!("Proxying: {} -> {}", req.uri(), target_url);
 
     let proxy_origin =
@@ -56,7 +56,7 @@ pub async fn proxy_handler(State(state): State<AppState>, req: Request) -> Respo
     let method = req.method().clone();
     let mut headers = req.headers().clone();
 
-    utils::prepare_request_headers(&mut headers);
+    utils::prepare_request_headers(&mut headers, &state);
 
     let body_bytes = match axum::body::to_bytes(req.into_body(), usize::MAX).await {
         Ok(b) => b,
@@ -74,7 +74,7 @@ pub async fn proxy_handler(State(state): State<AppState>, req: Request) -> Respo
 
     match request_builder.send().await {
         Ok(resp) => {
-            process_response(resp, &proxy_origin, is_secure, state.config.disable_warning).await
+            process_response(resp, &proxy_origin, is_secure, state.config.disable_warning, &state).await
         }
         Err(e) => {
             tracing::error!("Upstream request failed: {}", e);
@@ -89,6 +89,7 @@ async fn process_response(
     proxy_origin: &str,
     is_secure: bool,
     disable_warning: bool,
+    state: &AppState
 ) -> Response {
     let status = resp.status();
     let mut headers = HeaderMap::new();
@@ -105,7 +106,7 @@ async fn process_response(
             }
         } else if key == "location" {
             if let Ok(str_val) = value.to_str() {
-                let new_val = utils::rewrite_content_urls(str_val.to_string(), proxy_origin);
+                let new_val = utils::rewrite_content_urls(str_val.to_string(), proxy_origin, &state);
 
                 let new_val = if new_val.is_empty() {
                     "/".to_string()
@@ -141,7 +142,7 @@ async fn process_response(
         match resp.bytes().await {
             Ok(bytes) => {
                 let body_str = String::from_utf8_lossy(&bytes).to_string();
-                let mut new_body_str = utils::rewrite_content_urls(body_str, proxy_origin);
+                let mut new_body_str = utils::rewrite_content_urls(body_str, proxy_origin, &state);
 
                 if content_type.contains("text/html") && !disable_warning {
                     inject_banner(&mut new_body_str);

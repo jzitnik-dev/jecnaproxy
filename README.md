@@ -35,3 +35,4 @@ PORT=8080 BASE_URL=http://mysite.com cargo run
 | `PORT` | Port to listen on | `3000` |
 | `BASE_URL` | Public URL of the proxy (e.g. `https://proxy.jecnajevecna.cz`). If not set, it defaults to the request's Host header. | `http://localhost:3000` |
 | `DISABLE_WARNING` | Set to `true` or `1` to disable the "Not Official" HTML banner injected into pages. | `false` |
+| `MODE` | Proxy mode. Can be `spsejecna` or `jidelna` (for canteen). | `spsejecna` |

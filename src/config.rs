@@ -24,6 +24,50 @@ pub struct Config {
     pub base_url: Option<String>,
     /// Whether to disable the "Not Official" warning banner.
     pub disable_warning: bool,
+    /// Whether we should proxy spsejecna.cz or jidelna
+    pub mode: Mode
+}
+
+#[derive(Debug, Clone)]
+pub enum Mode {
+    SPSEJECNA,
+    JIDELNA
+}
+
+impl Mode {
+    fn from_env() -> Self {
+        match env::var("MODE")
+            .ok()
+            .map(|v| v.to_lowercase())
+            .as_deref()
+        {
+            Some("jidelna") => Mode::JIDELNA,
+            Some("spsejecna") => Mode::SPSEJECNA,
+            _ => Mode::SPSEJECNA, // default
+        }
+    }
+
+    pub fn url(&self) -> &'static str {
+        match self {
+            Mode::SPSEJECNA => "https://spsejecna.cz",
+            Mode::JIDELNA => "https://strav.nasejidelna.cz",
+        }
+    }
+
+    pub fn get_all_variants(&self) -> Vec<&'static str> {
+        match self {
+            Mode::SPSEJECNA => vec![
+                "https://www.spsejecna.cz",
+                "https://spsejecna.cz",
+                "http://www.spsejecna.cz",
+                "http://spsejecna.cz"
+            ],
+            Mode::JIDELNA => vec![
+                "https://strav.nasejidelna.cz",
+                "http://strav.nasejidelna.cz",
+            ]
+        }
+    }
 }
 
 impl Config {
@@ -41,11 +85,14 @@ impl Config {
         let disable_warning = env::var("DISABLE_WARNING")
             .map(|v| v == "true" || v == "1")
             .unwrap_or(false);
+        
+        let mode = Mode::from_env();
 
         Self {
             port,
             base_url,
             disable_warning,
+            mode,
         }
     }
 }

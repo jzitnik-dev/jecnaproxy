@@ -14,6 +14,8 @@
 
 use axum::http::{HeaderMap, HeaderValue};
 
+use crate::state::AppState;
+
 /// Determines the public origin of the proxy for the current request.
 ///
 /// Priority:
@@ -36,12 +38,13 @@ pub fn determine_proxy_origin(base_url: Option<&str>, headers: &HeaderMap) -> St
 }
 
 /// Rewrites a content string (HTML, JSON, etc.) to point to the proxy instead of the upstream.
-pub fn rewrite_content_urls(content: String, proxy_origin: &str) -> String {
-    content
-        .replace("https://www.spsejecna.cz", proxy_origin)
-        .replace("https://spsejecna.cz", proxy_origin)
-        .replace("http://www.spsejecna.cz", proxy_origin)
-        .replace("http://spsejecna.cz", proxy_origin)
+pub fn rewrite_content_urls(content: String, proxy_origin: &str, state: &AppState) -> String {
+    let urls = state.config.mode.get_all_variants();
+    let mut result = content;
+    for url in urls {
+        result = result.replace(url, proxy_origin);
+    }
+    result
 }
 
 /// Processes a `Set-Cookie` header value
@@ -78,21 +81,19 @@ pub fn is_secure_origin(origin: &str) -> bool {
 }
 
 /// Rewrites request headers before sending to the upstream server.
-pub fn prepare_request_headers(headers: &mut HeaderMap) {
+pub fn prepare_request_headers(headers: &mut HeaderMap, state: &AppState) {
     headers.remove("host");
     headers.remove("content-length");
     headers.remove("accept-encoding");
 
     if headers.contains_key("origin") {
-        headers.insert(
-            "origin",
-            HeaderValue::from_static("https://www.spsejecna.cz"),
-        );
+        headers.insert("origin", HeaderValue::from_static(state.config.mode.url()));
     }
+
     if headers.contains_key("referer") {
         headers.insert(
             "referer",
-            HeaderValue::from_static("https://www.spsejecna.cz/"),
+            HeaderValue::from_str(&format!("{}/", state.config.mode.url())).unwrap(),
         );
     }
 }
