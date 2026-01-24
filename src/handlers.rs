@@ -59,6 +59,7 @@ pub async fn proxy_handler(State(state): State<AppState>, req: Request) -> Respo
         .path_and_query()
         .map(|v| v.as_str())
         .unwrap_or("/");
+    let original_headers = req.headers().clone();
 
     let target_url = format!("{}{}", state.config.mode.url(), path_query);
     tracing::info!("Proxying: {} -> {}", req.uri(), target_url);
@@ -95,6 +96,7 @@ pub async fn proxy_handler(State(state): State<AppState>, req: Request) -> Respo
                 is_secure,
                 state.config.disable_warning,
                 &state,
+                &original_headers
             )
             .await
         }
@@ -112,6 +114,7 @@ async fn process_response(
     is_secure: bool,
     disable_warning: bool,
     state: &AppState,
+    original_request: &HeaderMap
 ) -> Response {
     let status = resp.status();
     let mut headers = HeaderMap::new();
@@ -147,6 +150,20 @@ async fn process_response(
             }
         } else {
             headers.append(key, value.clone());
+        }
+    }
+
+    if let Some(origin) = original_request.get("origin") {
+        if let Ok(origin_str) = origin.to_str() {
+            headers.insert(
+                "access-control-allow-origin",
+                HeaderValue::from_str(origin_str).unwrap_or_else(|_| HeaderValue::from_static("")),
+            );
+            headers.insert(
+                "access-control-allow-credentials",
+                HeaderValue::from_static("true"),
+            );
+            headers.insert("vary", HeaderValue::from_static("Origin"));
         }
     }
 
